@@ -445,7 +445,7 @@ export default function layout({ children }: Props) {
       <div className="hidden md:flex h-full w-56 flex-col fixed inset-y-0 z-50">
         <Sidebar />
       </div>
-     <main className="md:pl-56 h-full"> {children}</main>
+     <main className="md:pl-56 pt-[80px] h-full"> {children}</main>
     </div>
   );
 }
@@ -671,7 +671,7 @@ export default function layout({ children }: Props) {
       <div className="hidden md:flex h-full w-56 flex-col fixed inset-y-0 z-50">
         <Sidebar />
       </div>
-      <main className="md:pl-56 h-full"> {children}</main>
+      <main className="md:pl-56 pt-[80px] h-full"> {children}</main>
     </div>
   );
 }
@@ -788,3 +788,724 @@ export default function Navbar({}: Props) {
 ```
 
 ## Dynamic Layouts:
+
+Update app/components/NavbarRoutes.tsx:
+
+```
+"use client";
+import React from "react";
+import { UserButton } from "@clerk/nextjs";
+import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import { Button } from "./ui/button";
+import { LogOut } from "lucide-react";
+
+type Props = {};
+
+export default function NavbarRoutes({}: Props) {
+  const pathname = usePathname();
+  const isTeacherPage = pathname?.startsWith("/teacher");
+  const isPlayerPage = pathname?.includes("/chapter");
+  return (
+    <div className="flex gap-x-2 ml-auto">
+      {isTeacherPage || isPlayerPage ? (
+        <Link href="/">
+          <Button size="sm" variant="ghost">
+            <LogOut className="h-4 w-4 mr-2" />
+            Exit
+          </Button>
+        </Link>
+      ) : (
+        <Link href="/teacher/courses">
+          <Button size="sm" variant="ghost">
+            Teacher mode
+          </Button>
+        </Link>
+      )}
+      <UserButton afterSignOutUrl="/" />
+    </div>
+  );
+}
+
+```
+
+### Add Teacher Sidebar Routes:
+
+Update app/(dashboard)/\_components/SidebarRoutes.tsx:
+
+```
+"use client";
+import { BarChart, Compass, Layout, List } from "lucide-react";
+import React from "react";
+import SidebarItem from "./SidebarItem";
+import { usePathname } from "next/navigation";
+
+type Props = {};
+
+const guestRoutes = [
+  {
+    icon: Layout,
+    label: "Dashboard",
+    href: "/",
+  },
+  {
+    icon: Compass,
+    label: "Browse",
+    href: "/search",
+  },
+];
+
+const teacherRoutes = [
+  {
+    icon: List,
+    label: "Courses",
+    href: "/teacher/courses",
+  },
+  {
+    icon: BarChart,
+    label: "Analytics",
+    href: "/teacher/analytics",
+  },
+];
+export default function SidebarRoutes({}: Props) {
+  // const routes = guestRoutes;
+
+  const pathname = usePathname();
+  const isTeacherPage = pathname?.includes("/teacher");
+const routes = isTeacherPage? teacherRoutes : guestRoutes;
+  return (
+    <div className="flex flex-col w-full">
+      {routes.map((route) => (
+        <SidebarItem
+          key={route.href}
+          icon={route.icon}
+          label={route.label}
+          href={route.href}
+        />
+      ))}
+    </div>
+  );
+}
+
+```
+
+### Create Teacher Routes:
+
+#### Create app/(routes)/teahcer/course/page.tsx:
+
+```
+import React from 'react'
+
+type Props = {}
+
+export default function page({}: Props) {
+  return (
+    <div>Courses page</div>
+  )
+}
+```
+
+#### Create app/(routes)/teahcer/analytics/page.tsx:
+
+```
+import React from 'react'
+
+type Props = {}
+
+export default function page({}: Props) {
+  return (
+    <div>Analytics page</div>
+  )
+}
+```
+
+#### Create app/(routes)/teahcer/create/page.tsx:
+
+```
+import React from 'react'
+
+type Props = {}
+
+export default function page({}: Props) {
+  return (
+    <div>Create page</div>
+  )
+}
+```
+
+### Install packages:
+
+```
+npx shadcn-ui@latest add form
+npx shadcn-ui@latest add input
+npm install axios
+npm install react-hot-toast
+```
+
+#### Update app/(routes)/teacher/courses/page.tsx:
+
+```
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import React from "react";
+
+type Props = {};
+
+export default function page({}: Props) {
+  return (
+    <div className="p-6">
+      <Link href="/teacher/create">
+        <Button>New Course</Button>
+      </Link>
+    </div>
+  );
+}
+
+```
+
+#### Update app/(routes)/teahcer/create/page.tsx:
+
+```
+"use client";
+import React from "react";
+import * as z from "zod";
+import axios from "axios";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { useRouter } from "next/navigation";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import Link from "next/link";
+
+const formSchema = z.object({
+  title: z.string().min(1, {
+    message: "Title is required",
+  }),
+});
+
+type Props = {};
+
+export default function page({}: Props) {
+  const router = useRouter();
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: "",
+    },
+  });
+
+  const { isSubmitting, isValid } = form.formState;
+
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    // console.log(values);
+    try {
+      const response = await axios.post("/api/courses", values);
+      router.push(`/teacher/courses/${response.data.id}`);
+    } catch (e) {
+      console.log("Something went wrong");
+    }
+  };
+  return (
+    <div className="max-w-5xl mx-auto flex md:items-center md:justify-center h-full p-6">
+      <div>
+        <h1 className="text-2xl">Name your course</h1>
+        <p className="text-sm text-slate-600">
+          What would you like to name your course? Don&apos;t worry, you can
+          change this later.
+        </p>
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="space-y-8 mt-8"
+          >
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Course Title</FormLabel>
+                  <FormControl>
+                    <Input
+                      disabled={isSubmitting}
+                      placeholder="e.g. 'Advanced web development"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    What will you teach in this course?
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="flex items-center gap-x-2">
+              <Link href="/">
+                <Button variant="ghost" type="button">
+                  Cancel
+                </Button>
+              </Link>
+              <Button type="submit" disabled={!isValid || isSubmitting}>
+                Continue
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </div>
+    </div>
+  );
+}
+
+```
+
+### Create components/providers/toasterProvider.tsx:
+```
+"use client";
+import React from "react";
+import { Toaster } from "react-hot-toast";
+
+export default function toasterProvider() {
+  return <Toaster />;
+}
+```
+
+### Update app/layout.tsx:
+```
+import "./globals.css";
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
+import ToasterProvider from "@/components/providers/toasterProvider";
+const inter = Inter({ subsets: ["latin"] });
+
+export const metadata: Metadata = {
+  title: "Next.js 13 with Clerk",
+  description: "Generated by create next app",
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <ClerkProvider>
+      <html lang="en">
+        <body className={inter.className}>
+          <ToasterProvider />
+          {children}
+        </body>
+      </html>
+    </ClerkProvider>
+  );
+}
+
+```
+
+### Update app/(routes)/teahcer/create/page.tsx with toaster notification:
+
+```
+"use client";
+import React from "react";
+import * as z from "zod";
+import axios from "axios";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { useRouter } from "next/navigation";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import Link from "next/link";
+import toast from "react-hot-toast";
+
+const formSchema = z.object({
+  title: z.string().min(1, {
+    message: "Title is required",
+  }),
+});
+
+type Props = {};
+
+export default function page({}: Props) {
+  const router = useRouter();
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: "",
+    },
+  });
+
+  const { isSubmitting, isValid } = form.formState;
+
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    // console.log(values);
+    try {
+      const response = await axios.post("/api/courses", values);
+      router.push(`/teacher/courses/${response.data.id}`);
+    } catch (e) {
+      // console.log("Something went wrong");
+      toast.error("Something went wrong");
+    }
+  };
+  return (
+    <div className="max-w-5xl mx-auto flex md:items-center md:justify-center h-full p-6">
+      <div>
+        <h1 className="text-2xl">Name your course</h1>
+        <p className="text-sm text-slate-600">
+          What would you like to name your course? Don&apos;t worry, you can
+          change this later.
+        </p>
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="space-y-8 mt-8"
+          >
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Course Title</FormLabel>
+                  <FormControl>
+                    <Input
+                      disabled={isSubmitting}
+                      placeholder="e.g. 'Advanced web development"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    What will you teach in this course?
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="flex items-center gap-x-2">
+              <Link href="/">
+                <Button variant="ghost" type="button">
+                  Cancel
+                </Button>
+              </Link>
+              <Button type="submit" disabled={!isValid || isSubmitting}>
+                Continue
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </div>
+    </div>
+  );
+}
+```
+
+## Setup Prisma and DB:
+### Setup Prisma:
+Install the Prisma extension in VSCode for syntax highlighting.
+
+```
+npm install --save-dev prisma
+npx prisma init
+```
+
+This create a prisma/schema.prisma:
+```
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+```
+
+And in .env a variable DATABASE_URL
+
+### Setup the DB:
+We use MySQL and PlanetScale (https://planetscale.com/).
+Signup with GitHub > Create a new database > Database Name: lms-platform > Region: eu-west-2 |(London) > 
+Plan Type: Hobby (Free) > Add Card > Create database > Select your language or framework: Prisma > Create password
+
+Next, copy the DATABASE_URL and paste it in the .env file.
+
+### Create Schema:
+Copy the schema.prisma from planetscale and paste it in th prisma/schema.prisma:
+```
+datasource db {
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+```
+
+### Install Prisma Client:
+```
+npm install @prisma/client
+```
+
+### Create lib/db.ts:
+```
+import { PrismaClient } from "@prisma/client";
+
+declare global {
+  var prisma: PrismaClient | undefined;
+}
+// export const db = new PrismaClient(); // Causes issues in developement everytime we save a file a new prisma client instance is created which overloads thr project and crashes in development.
+// globalThis is not affected by hot reloading so assigning db to globalThis will avoid crashing the project in development
+
+export const db = globalThis.prisma || new PrismaClient();
+if (process.env.NODE_ENV !== "production") globalThis.prisma = db;
+
+```
+
+### Create the Models:
+Update prisma/schema.prisma:
+```
+datasource db {
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Course {
+  id String @id @default(uuid())
+  userId String
+  title String @db.Text
+  description String? @db.Text
+  imageUrl String? @db.Text
+  price Float?
+  isPublished Boolean @default(false)
+
+  categoryId String?
+  category Category? @relation(fields: [categoryId], references: [id])
+
+  attachments Attachment[]
+
+  createdAt DateTime @default(now())
+  updateedAt DateTime @updatedAt
+    @@index([categoryId])
+}
+
+model Category{
+  id String @id @default(uuid())
+  name String @unique
+  courses Course[]
+}
+
+model Attachment {
+  id String @id @default(uuid())
+  name String 
+  url String @db.Text
+
+  courseId String
+  course Course @relation(fields:[courseId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  updateedAt DateTime @updatedAt
+  
+  @@index([courseId])
+}
+```
+
+Whenever you edit the schema.prisma you need restart the server:
+```
+npx prisma generate //add locally
+npx prisma db push // push to planet scale or whatever database_url you included in .env.
+```
+
+## Create Course Creation API Route.
+### Create app/api/courses/route.ts:
+```
+import { db } from "@/lib/db";
+import { auth } from "@clerk/nextjs";
+import { NextResponse } from "next/server";
+
+export async function POST(req: Request) {
+  try {
+    const { userId } = auth();
+    const { title } = await req.json();
+
+    if (!userId) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+    const course = await db.course.create({
+      data: {
+        userId,
+        title,
+      },
+    });
+    return NextResponse.json(course);
+  } catch (error) {
+    console.log("[COURSES]", error);
+    return new NextResponse("Internal Error", { status: 500 });
+  }
+}
+
+```
+
+### Update app/(dashboard)/(routes)/teacher/create/page.tsx:
+```
+"use client";
+import React from "react";
+import * as z from "zod";
+import axios from "axios";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { useRouter } from "next/navigation";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import Link from "next/link";
+import toast from "react-hot-toast";
+
+const formSchema = z.object({
+  title: z.string().min(1, {
+    message: "Title is required",
+  }),
+});
+
+type Props = {};
+
+export default function page({}: Props) {
+  const router = useRouter();
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: "",
+    },
+  });
+
+  const { isSubmitting, isValid } = form.formState;
+
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    // console.log(values);
+    try {
+      const response = await axios.post("/api/courses", values);
+      router.push(`/teacher/courses/${response.data.id}`);
+      toast.success("Course created");
+    } catch (e) {
+      // console.log("Something went wrong");
+      toast.error("Something went wrong");
+    }
+  };
+  return (
+    <div className="max-w-5xl mx-auto flex md:items-center md:justify-center h-full p-6">
+      <div>
+        <h1 className="text-2xl">Name your course</h1>
+        <p className="text-sm text-slate-600">
+          What would you like to name your course? Don&apos;t worry, you can
+          change this later.
+        </p>
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="space-y-8 mt-8"
+          >
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Course Title</FormLabel>
+                  <FormControl>
+                    <Input
+                      disabled={isSubmitting}
+                      placeholder="e.g. 'Advanced web development"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    What will you teach in this course?
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="flex items-center gap-x-2">
+              <Link href="/">
+                <Button variant="ghost" type="button">
+                  Cancel
+                </Button>
+              </Link>
+              <Button type="submit" disabled={!isValid || isSubmitting}>
+                Continue
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </div>
+    </div>
+  );
+}
+```
+
+```
+ npm run dev
+```
+
+Try to create a course amd you get redirected to a not found page.
+
+To see the DB entities:
+```
+npx prisma studio
+```
+ Prisma Studio is up on http://localhost:5555
+
+ ### Create Course Id Page:
+ Create app/(dashboard)/(routes)/teacher/courses/[courseId]/page.tsx:
+ ```
+import React from "react";
+
+type Props = {
+  params: {
+    courseId: string;
+  };
+};
+
+export default function page({ params }: Props) {
+  const courseId = params.courseId;
+  return <div>Course Id: {courseId}</div>;
+}
+
+ ```
+
+## Course Edit Page UI:
